@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaussian Splatting — Rust</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="doc-wrap">
+        <nav class="sidebar">
+            <div style="padding:16px 16px 8px">
+                <div style="font-size:13px;font-weight:500;color:var(--text)">gaussian_splat_pipeline</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">v0.1.0 · Rust 2021</div>
+            </div>
+            <div class="search-bar">
+                <input type="text" placeholder="Search docs..." oninput="searchDocs(this.value)" id="search-inp">
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">Getting started</div>
+                <div class="nav-link active" onclick="showPage('overview',this)">Overview</div>
+                <div class="nav-link" onclick="showPage('install',this)">Installation</div>
+                <div class="nav-link" onclick="showPage('quickstart',this)">Quick start</div>
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">Architecture</div>
+                <div class="nav-link" onclick="showPage('pipeline',this)">Pipeline stages</div>
+                <div class="nav-link" onclick="showPage('modules',this)">Module map</div>
+                <div class="nav-link" onclick="showPage('memory',this)">Memory model</div>
+                <div class="nav-link" onclick="showPage('concurrency',this)">Concurrency</div>
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">Math reference</div>
+                <div class="nav-link" onclick="showPage('math-gaussian',this)">Gaussian primitives</div>
+                <div class="nav-link" onclick="showPage('math-covariance',this)">Covariance & EWA</div>
+                <div class="nav-link" onclick="showPage('math-sh',this)">Spherical harmonics</div>
+                <div class="nav-link" onclick="showPage('math-projection',this)">Projection</div>
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">API reference</div>
+                <div class="nav-link" onclick="showPage('api-gaussian',this)">Gaussian3D</div>
+                <div class="nav-link" onclick="showPage('api-camera',this)">Camera</div>
+                <div class="nav-link" onclick="showPage('api-rasterizer',this)">Rasterizer (CPU)</div>
+                <div class="nav-link" onclick="showPage('api-gpu',this)">GPU context</div>
+                <div class="nav-link" onclick="showPage('api-optimizer',this)">Optimizer</div>
+                <div class="nav-link" onclick="showPage('api-sfm',this)">SfM pipeline</div>
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">Shaders</div>
+                <div class="nav-link" onclick="showPage('shader-wgsl',this)">splat.wgsl</div>
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">Config reference</div>
+                <div class="nav-link" onclick="showPage('cfg-train',this)">TrainConfig</div>
+                <div class="nav-link" onclick="showPage('cfg-features',this)">Cargo features</div>
+            </div>
+            <div class="nav-section">
+                <div class="sidebar-title">Guides</div>
+                <div class="nav-link" onclick="showPage('guide-gpu',this)">GPU vs CPU</div>
+                <div class="nav-link" onclick="showPage('guide-python',this)">Python bindings</div>
+                <div class="nav-link" onclick="showPage('guide-perf',this)">Performance tuning</div>
+            </div>
+        </nav>
+    
+        <main class="content">
+    
+            <!-- OVERVIEW -->
+            <div class="page active" id="page-overview">
+                <h1>gaussian_splat_pipeline <span class="badge badge-async">async</span></h1>
+                <p class="subtitle">High-performance 3D Gaussian Splatting from video — Rust 2021 · GPU + CPU fallback ·
+                    Tokio async · Rayon parallel</p>
+                <div class="toc">
+                    <strong style="font-size:13px">On this page</strong>
+                    <ul>
+                        <li><a onclick="showPage('install',document.querySelector('[onclick*=install]'))">Installation</a>
+                        </li>
+                        <li><a onclick="showPage('quickstart',document.querySelector('[onclick*=quickstart]'))">Quick
+                                start</a></li>
+                        <li><a onclick="showPage('pipeline',document.querySelector('[onclick*=pipeline]'))">Pipeline
+                                overview</a></li>
+                    </ul>
+                </div>
+                <p>This crate implements the complete pipeline described in <em>3D Gaussian Splatting for Real-Time Radiance
+                        Field Rendering</em> (Kerbl et al., SIGGRAPH 2023). It takes a video as input and produces a trained
+                    <code>.ply</code> point cloud of 3D Gaussians that can be rendered in real time.</p>
+                <h2>What it does</h2>
+                <div class="pipeline-flow">
+                    <div class="pf-step">
+                        <div class="pf-num">1</div>
+                        <div class="pf-name">Frame extraction</div>
+                        <div class="pf-detail">ffmpeg · async</div>
+                    </div>
+                    <div class="pf-arrow">→</div>
+                    <div class="pf-step">
+                        <div class="pf-num">2</div>
+                        <div class="pf-name">SfM</div>
+                        <div class="pf-detail">COLMAP · async</div>
+                    </div>
+                    <div class="pf-arrow">→</div>
+                    <div class="pf-step">
+                        <div class="pf-num">3</div>
+                        <div class="pf-name">Init Gaussians</div>
+                        <div class="pf-detail">Rayon · parallel</div>
+                    </div>
+                    <div class="pf-arrow">→</div>
+                    <div class="pf-step">
+                        <div class="pf-num">4</div>
+                        <div class="pf-name">Training loop</div>
+                        <div class="pf-detail">Adam · GPU/CPU</div>
+                    </div>
+                    <div class="pf-arrow">→</div>
+                    <div class="pf-step">
+                        <div class="pf-num">5</div>
+                        <div class="pf-name">Export</div>
+                        <div class="pf-detail">.ply · .splat</div>
+                    </div>
+                </div>
+                <h2>Design principles</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Principle</th>
+                            <th>How</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Never block the async executor</strong></td>
+                            <td>All CPU-heavy work runs in <code>tokio::task::spawn_blocking</code>. Subprocesses (ffmpeg,
+                                COLMAP) use <code>tokio::process::Command</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GPU-optional</strong></td>
+                            <td>GPU support is a Cargo feature (<code>--features gpu</code>). Falls back to CPU
+                                automatically if no adapter found.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Memory efficiency</strong></td>
+                            <td><code>Gaussian3D</code> is <code>#[repr(C)]</code> and implements <code>bytemuck::Pod</code>
+                                — zero-copy GPU uploads. Large files use <code>memmap2</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Correctness first</strong></td>
+                            <td>Quaternions are renormalized every Adam step. Covariance is always positive semi-definite
+                                (RS·RSᵀ construction).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Parallel by default</strong></td>
+                            <td>Rayon <code>par_iter</code> over Gaussians for projection, gradient update, densification.
+                                Tile rasterizer uses zero-contention tile decomposition.</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Key numbers</h2>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0 24px">
+                    <div class="param-card" style="text-align:center">
+                        <div style="font-size:20px;font-weight:500;color:var(--accent)">192B</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">per Gaussian3D</div>
+                    </div>
+                    <div class="param-card" style="text-align:center">
+                        <div style="font-size:20px;font-weight:500;color:var(--accent)">59</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">trainable
+                            params/Gaussian</div>
+                    </div>
+                    <div class="param-card" style="text-align:center">
+                        <div style="font-size:20px;font-weight:500;color:var(--accent)">16×16</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">rasterizer tile size
+                        </div>
+                    </div>
+                    <div class="param-card" style="text-align:center">
+                        <div style="font-size:20px;font-weight:500;color:var(--accent)">3M</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">max Gaussians default
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- INSTALL -->
+            <div class="page" id="page-install">
+                <h1>Installation</h1>
+                <p class="subtitle">Prerequisites and build configurations</p>
+                <h2>System requirements</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Dependency</th>
+                            <th>Required for</th>
+                            <th>Install</th>
+                        </tr>
+                        <tr>
+                            <td><code>Rust ≥ 1.75</code></td>
+                            <td>Everything</td>
+                            <td><code>rustup update stable</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>ffmpeg</code></td>
+                            <td>Frame extraction</td>
+                            <td><code>apt install ffmpeg</code> / <code>brew install ffmpeg</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>colmap</code></td>
+                            <td>Structure from Motion</td>
+                            <td><a href="https://colmap.github.io/install.html">colmap.github.io/install</a></td>
+                        </tr>
+                        <tr>
+                            <td><code>OpenBLAS</code></td>
+                            <td>ndarray-linalg</td>
+                            <td><code>apt install libopenblas-dev</code></td>
+                        </tr>
+                        <tr>
+                            <td>Vulkan / Metal / DX12 driver</td>
+                            <td>GPU mode only</td>
+                            <td>OS-specific GPU driver</td>
+                        </tr>
+                        <tr>
+                            <td><code>Python ≥ 3.9</code> + maturin</td>
+                            <td>Python bindings</td>
+                            <td><code>pip install maturin</code></td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Build variants</h2>
+                <pre><span class="highlight-cmt"># CPU-only (default, no GPU driver needed)</span>
+    cargo build --release
+    
+    <span class="highlight-cmt"># With GPU support (wgpu / WGSL compute shaders)</span>
+    cargo build --release --features gpu
+    
+    <span class="highlight-cmt"># With ffmpeg bindings (optional, alternative to subprocess approach)</span>
+    cargo build --release --features video
+    
+    <span class="highlight-cmt"># Full build: GPU + video + Python FFI</span>
+    cargo build --release --features full
+    
+    <span class="highlight-cmt"># Python wheel (requires maturin)</span>
+    maturin build --release --features python</pre>
+                <h2>Add as library dependency</h2>
+                <pre>[dependencies]
+    gaussian_splat = { git = <span class="highlight-str">"https://github.com/your-org/gaussian_splat_pipeline"</span>, features = [<span class="highlight-str">"gpu"</span>] }</pre>
+                <div class="callout">
+                    <p>On Linux with NVIDIA GPUs, the Vulkan backend gives the best compute performance. On macOS, wgpu uses
+                        Metal automatically — no additional setup needed.</p>
+                </div>
+            </div>
+    
+            <!-- QUICKSTART -->
+            <div class="page" id="page-quickstart">
+                <h1>Quick start</h1>
+                <p class="subtitle">From video to trained Gaussians in one call</p>
+                <h2>CLI</h2>
+                <pre><span class="highlight-cmt"># Basic run (CPU mode)</span>
+    gsplat --input my_scene.mp4 --output ./output
+    
+    <span class="highlight-cmt"># GPU mode, 2fps extraction, 30k iterations</span>
+    gsplat --input my_scene.mp4 --output ./output --gpu --fps 2 --iters 30000
+    
+    <span class="highlight-cmt"># Override training hyper-parameters</span>
+    gsplat --input scene.mp4 --output ./out \
+      --gpu \
+      --lr-position 0.00016 \
+      --densify-from 500 \
+      --densify-until 15000 \
+      --max-gaussians 2000000
+    
+    <span class="highlight-cmt"># View all flags</span>
+    gsplat --help</pre>
+                <h2>Rust API</h2>
+                <pre><span class="highlight-kw">use</span> gaussian_splat::pipeline::{Pipeline, PipelineConfig};
+    
+    <span class="highlight-kw">#[tokio::main]</span>
+    <span class="highlight-kw">async fn</span> <span class="highlight-ty">main</span>() -> anyhow::Result<()> {
+        <span class="highlight-kw">let</span> cfg = PipelineConfig::from_video(
+            <span class="highlight-str">"scene.mp4"</span>,
+            <span class="highlight-str">"./output"</span>,
+        );
+    
+        <span class="highlight-kw">let</span> pipeline = Pipeline::new(cfg).<span class="highlight-kw">await</span>?;
+        <span class="highlight-kw">let</span> output_ply = pipeline.run().<span class="highlight-kw">await</span>?;
+    
+        println!(<span class="highlight-str">"Done: {:?}"</span>, output_ply);
+        Ok(())
+    }</pre>
+                <h2>Customise config</h2>
+                <pre><span class="highlight-kw">let mut</span> cfg = PipelineConfig::from_video(<span class="highlight-str">"scene.mp4"</span>, <span class="highlight-str">"./out"</span>);
+    cfg.extract_fps = <span class="highlight-num">3.0</span>;          <span class="highlight-cmt">// frames per second to extract</span>
+    cfg.use_gpu = <span class="highlight-kw">true</span>;              <span class="highlight-cmt">// enable GPU if available</span>
+    cfg.train.num_iterations = <span class="highlight-num">15_000</span>;
+    cfg.train.max_gaussians = <span class="highlight-num">1_000_000</span>;
+    cfg.bg_color = [<span class="highlight-num">1.0</span>, <span class="highlight-num">1.0</span>, <span class="highlight-num">1.0</span>]; <span class="highlight-cmt">// white background</span>
+    cfg.save_interval = <span class="highlight-num">2000</span>;        <span class="highlight-cmt">// checkpoint every 2k iters</span></pre>
+                <h2>Expected output layout</h2>
+                <pre>output/
+    ├── frames/          <span class="highlight-cmt"># Extracted PNG frames</span>
+    │   ├── frame_000001.png
+    │   └── ...
+    ├── colmap/          <span class="highlight-cmt"># COLMAP workspace</span>
+    │   ├── colmap.db
+    │   └── sparse/0/
+    │       ├── cameras.bin
+    │       ├── images.bin
+    │       └── points3D.bin
+    ├── ckpt_005000.ply  <span class="highlight-cmt"># Periodic checkpoints</span>
+    ├── ckpt_010000.ply
+    └── output.ply       <span class="highlight-cmt"># Final trained splat</span></pre>
+            </div>
+    
+            <!-- PIPELINE STAGES -->
+            <div class="page" id="page-pipeline">
+                <h1>Pipeline stages</h1>
+                <p class="subtitle">What happens inside <code>Pipeline::run()</code></p>
+                <h2>Stage 1 — Frame extraction</h2>
+                <p>Calls <code>ffmpeg</code> as an async subprocess. Non-blocking: the Tokio runtime handles other tasks
+                    while ffmpeg runs.</p>
+                <pre>sfm::extract_frames(&video_path, &frames_dir, fps).await?</pre>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Default</th>
+                            <th>Notes</th>
+                        </tr>
+                        <tr>
+                            <td><code>fps</code></td>
+                            <td>2.0</td>
+                            <td>2 frames/sec balances coverage vs COLMAP cost. Increase for fast-moving scenes.</td>
+                        </tr>
+                        <tr>
+                            <td>Output format</td>
+                            <td>PNG (-qscale:v 1)</td>
+                            <td>Highest quality; lossless SIFT features.</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Stage 2 — Structure from Motion (COLMAP)</h2>
+                <p>Runs three COLMAP passes in sequence, all as async subprocesses:</p>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Pass</th>
+                            <th>COLMAP command</th>
+                            <th>What it does</th>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td><code>feature_extractor</code></td>
+                            <td>SIFT keypoint detection on every frame</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td><code>exhaustive_matcher</code></td>
+                            <td>Match features between all frame pairs</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td><code>mapper</code></td>
+                            <td>Incremental SfM → camera poses + sparse 3D points</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="warn-box">
+                    <p>COLMAP is the main bottleneck. For a 100-frame sequence, expect 5–15 minutes on CPU. Use
+                        <code>--gpu</code> to enable GPU SIFT and GPU matching — roughly 5× faster.</p>
+                </div>
+                <h2>Stage 3 — Gaussian initialisation</h2>
+                <p>Parses COLMAP binary files (<code>points3D.bin</code>, <code>cameras.bin</code>) and converts each SfM
+                    point into a <code>Gaussian3D</code>:</p>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Initial value</th>
+                            <th>Derivation</th>
+                        </tr>
+                        <tr>
+                            <td>Position</td>
+                            <td>SfM xyz</td>
+                            <td>Direct copy</td>
+                        </tr>
+                        <tr>
+                            <td>Color (SH DC)</td>
+                            <td>SfM RGB</td>
+                            <td><code>(linear(r) - 0.5) × SH_C0_INV</code></td>
+                        </tr>
+                        <tr>
+                            <td>Scale (isotropic)</td>
+                            <td>mean NN distance</td>
+                            <td>K=3 nearest neighbours via spatial sort</td>
+                        </tr>
+                        <tr>
+                            <td>Rotation</td>
+                            <td>identity quaternion</td>
+                            <td>[1, 0, 0, 0]</td>
+                        </tr>
+                        <tr>
+                            <td>Opacity</td>
+                            <td>logit(0.1) ≈ −2.2</td>
+                            <td>10% opacity, optimised during training</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Stage 4 — Training loop</h2>
+                <p>30 000 iterations (default). Each iteration:</p>
+                <pre>Pick random camera → Render (GPU or CPU) → Compute L1+D-SSIM loss
+    → Backward pass (per-Gaussian gradients) → Adam step → [Densify/Prune every 100 iters]</pre>
+                <p>Key events during training:</p>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Iteration range</th>
+                            <th>Event</th>
+                        </tr>
+                        <tr>
+                            <td>500 – 15 000</td>
+                            <td>Adaptive densification window (clone + split)</td>
+                        </tr>
+                        <tr>
+                            <td>Every 3 000</td>
+                            <td>Opacity reset — forces re-learning of which Gaussians are real</td>
+                        </tr>
+                        <tr>
+                            <td>Every 5 000</td>
+                            <td>Checkpoint save to <code>ckpt_NNNNNN.ply</code> (async, non-blocking)</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Stage 5 — Export</h2>
+                <p>Saves a PLY point cloud where each Gaussian is a point with custom properties (position, rotation, scale,
+                    opacity, 48 SH coefficients). Compatible with standard Gaussian Splatting viewers.</p>
+            </div>
+    
+            <!-- MODULE MAP -->
+            <div class="page" id="page-modules">
+                <h1>Module map</h1>
+                <p class="subtitle">Every source file and what it owns</p>
+                <div class="module-card">
+                    <div class="module-title">math</div>
+                    <div class="module-path">src/math/mod.rs · src/math/projection.rs · src/math/sh.rs</div>
+                    <div class="module-desc">Core mathematical types and functions. <code>Gaussian3D</code> struct,
+                        <code>Camera</code>, <code>sigmoid</code>, <code>logit</code>, <code>softplus</code>. No I/O, no
+                        async, no allocations beyond struct construction.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">math::projection</div>
+                    <div class="module-path">src/math/projection.rs</div>
+                    <div class="module-desc">EWA covariance projection (3D → 2D), perspective matrix construction,
+                        Gribb-Hartmann frustum plane extraction, sphere-frustum culling, Gaussian screen-space AABB.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">math::sh</div>
+                    <div class="module-path">src/math/sh.rs</div>
+                    <div class="module-desc">Degree-3 real spherical harmonics evaluation. SH constants <code>SH_C0</code>,
+                        <code>SH_C1</code>, <code>SH_C2[5]</code>, <code>SH_C3[7]</code>. <code>eval_sh_deg3</code> takes 48
+                        coefficients and a view direction, returns RGB.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">cpu::rasterizer</div>
+                    <div class="module-path">src/cpu/rasterizer.rs</div>
+                    <div class="module-desc">Tile-based alpha-compositing Gaussian rasterizer. Projects all Gaussians, sorts
+                        by depth, decomposes screen into 16×16 tiles, assigns Gaussians to tiles, Rayon-parallel raster per
+                        tile. Returns a <code>Framebuffer</code> (RGBA f32 linear).</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">gpu</div>
+                    <div class="module-path">src/gpu/mod.rs · src/gpu/context.rs</div>
+                    <div class="module-desc">wgpu device/queue initialisation, buffer upload helpers, async GPU readback.
+                        Feature-gated behind <code>--features gpu</code>. <code>gpu_available()</code> probes the system
+                        without panicking.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">pipeline::sfm</div>
+                    <div class="module-path">src/pipeline/sfm.rs</div>
+                    <div class="module-desc">Frame extraction (ffmpeg), COLMAP invocation, COLMAP binary parser
+                        (<code>points3D.bin</code>, <code>cameras.bin</code>), Gaussian initialisation from SfM points
+                        including nearest-neighbour scale estimation.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">pipeline::optimizer</div>
+                    <div class="module-path">src/pipeline/optimizer.rs</div>
+                    <div class="module-desc">Adam optimiser state (<code>AdamState</code>), <code>adam_step</code>, adaptive
+                        densification (<code>densify_and_prune</code>: split + clone + prune), opacity reset.
+                        <code>TrainConfig</code> with all hyper-parameters.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">pipeline (orchestrator)</div>
+                    <div class="module-path">src/pipeline/mod.rs</div>
+                    <div class="module-desc">Top-level <code>Pipeline</code> struct. Owns <code>PipelineConfig</code> and
+                        optional <code>GpuContext</code>. <code>Pipeline::run()</code> sequences all 5 stages. All heavy
+                        work dispatched with <code>spawn_blocking</code>.</div>
+                </div>
+                <div class="module-card">
+                    <div class="module-title">shaders/splat.wgsl</div>
+                    <div class="module-path">shaders/splat.wgsl</div>
+                    <div class="module-desc">WGSL compute shader with two entry points: <code>@compute fn project</code>
+                        (Gaussian → SplatInfo2D, 256 threads/workgroup) and <code>@compute fn rasterize</code> (tile raster,
+                        16×16 threads/workgroup).</div>
+                </div>
+            </div>
+    
+            <!-- MEMORY MODEL -->
+            <div class="page" id="page-memory">
+                <h1>Memory model</h1>
+                <p class="subtitle">How data is stored and moved through the pipeline</p>
+                <h2>Gaussian3D memory layout</h2>
+                <p><code>Gaussian3D</code> is <code>#[repr(C)]</code> with explicit field ordering to minimise padding and
+                    allow zero-copy GPU uploads via <code>bytemuck::Pod</code>.</p>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Field</th>
+                            <th>Type</th>
+                            <th>Bytes</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td><code>position</code></td>
+                            <td>[f32; 3]</td>
+                            <td>12</td>
+                            <td>World-space centre μ</td>
+                        </tr>
+                        <tr>
+                            <td><code>opacity_logit</code></td>
+                            <td>f32</td>
+                            <td>4</td>
+                            <td>Pre-sigmoid opacity (avoids gradient vanishing)</td>
+                        </tr>
+                        <tr>
+                            <td><code>rotation</code></td>
+                            <td>[f32; 4]</td>
+                            <td>16</td>
+                            <td>Unit quaternion [w,x,y,z]</td>
+                        </tr>
+                        <tr>
+                            <td><code>log_scale</code></td>
+                            <td>[f32; 3]</td>
+                            <td>12</td>
+                            <td>Log scale — exp gives positive scale</td>
+                        </tr>
+                        <tr>
+                            <td><em>(padding)</em></td>
+                            <td>—</td>
+                            <td>4</td>
+                            <td>Align to 16B for GPU vec4 alignment</td>
+                        </tr>
+                        <tr>
+                            <td><code>sh_coeffs</code></td>
+                            <td>[f32; 48]</td>
+                            <td>192</td>
+                            <td>16 SH coefficients × 3 RGB channels</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2"><strong>Total</strong></td>
+                            <td><strong>240B</strong></td>
+                            <td></td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Allocation strategy</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Data</th>
+                            <th>Strategy</th>
+                            <th>Why</th>
+                        </tr>
+                        <tr>
+                            <td>Gaussian array</td>
+                            <td><code>Vec&lt;Gaussian3D&gt;</code></td>
+                            <td>Contiguous — good cache locality, SIMD-friendly, direct GPU upload with
+                                <code>bytemuck::cast_slice</code></td>
+                        </tr>
+                        <tr>
+                            <td>Adam state (m1/m2)</td>
+                            <td><code>Vec&lt;f32&gt;</code> flat arrays</td>
+                            <td>Indexed as <code>[gaussian_idx * 59 + param_idx]</code> — avoids pointer indirection</td>
+                        </tr>
+                        <tr>
+                            <td>Framebuffer</td>
+                            <td><code>Vec&lt;f32&gt;</code> RGBA</td>
+                            <td>Single allocation, passed to GPU or tile rasterizer</td>
+                        </tr>
+                        <tr>
+                            <td>Large binary files (COLMAP)</td>
+                            <td><code>memmap2::Mmap</code></td>
+                            <td>OS-managed paging — only touched pages loaded into RAM</td>
+                        </tr>
+                        <tr>
+                            <td>Tile pixel buffers</td>
+                            <td>Stack (<code>[f32; 16×16×4]</code>)</td>
+                            <td>Per-rayon-thread, no heap allocation in hot loop</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>GPU buffer flow</h2>
+                <pre>Vec&lt;Gaussian3D&gt;
+      → bytemuck::cast_slice (zero-copy view)
+      → wgpu STORAGE buffer (COPY_DST | COPY_SRC)
+      → compute shader: project pass
+      → SplatInfo2D STORAGE buffer
+      → radix sort (depth keys)
+      → compute shader: rasterize pass
+      → texture_storage_2d (rgba8unorm)
+      → readback buffer (MAP_READ)
+      → Vec&lt;u8&gt; on CPU</pre>
+                <div class="callout">
+                    <p>GPU buffer uploads use <code>DeviceExt::create_buffer_init</code> — one <code>memcpy</code> from CPU
+                        slice to VRAM, no intermediate staging buffer allocation needed in application code.</p>
+                </div>
+            </div>
+    
+            <!-- CONCURRENCY -->
+            <div class="page" id="page-concurrency">
+                <h1>Concurrency model</h1>
+                <p class="subtitle">How the pipeline stays non-blocking end-to-end</p>
+                <h2>Thread roles</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Thread pool</th>
+                            <th>Used for</th>
+                            <th>Size</th>
+                        </tr>
+                        <tr>
+                            <td>Tokio async executor</td>
+                            <td>Orchestration, subprocess I/O, GPU submission futures</td>
+                            <td>Tokio default (num CPUs)</td>
+                        </tr>
+                        <tr>
+                            <td>Tokio blocking pool</td>
+                            <td>CPU-heavy Rust code: projection, Adam step, densification, parsing</td>
+                            <td>512 (Tokio default max)</td>
+                        </tr>
+                        <tr>
+                            <td>Rayon thread pool</td>
+                            <td>Data parallelism within a blocking task: <code>par_iter</code> over Gaussians, tile
+                                rasterizer</td>
+                            <td>num CPUs</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Key async boundaries</h2>
+                <pre><span class="highlight-cmt">// This blocks the thread for ~minutes — must be spawn_blocking</span>
+    <span class="highlight-kw">let</span> (gaussians, cameras) = tokio::task::spawn_blocking(<span class="highlight-kw">move</span> || {
+        load_sfm_output(&workspace)
+    }).await??;
+    
+    <span class="highlight-cmt">// Render runs in blocking pool, GPU future awaits in async context</span>
+    <span class="highlight-kw">let</span> rendered = task::spawn_blocking(<span class="highlight-kw">move</span> || {
+        cpu::rasterizer::rasterize(&gaussians, &camera, bg)
+    }).await?;
+    
+    <span class="highlight-cmt">// Checkpoint saves don't block the training loop</span>
+    task::spawn(async <span class="highlight-kw">move</span> {
+        task::spawn_blocking(<span class="highlight-kw">move</span> || save_ply(&g, &path)).await
+    });</pre>
+                <h2>Tile rasterizer zero-contention design</h2>
+                <p>The screen is divided into 16×16 tiles. Each tile writes to a disjoint range of the output pixel buffer.
+                    Rayon iterates over tiles in parallel with no mutexes needed — a single <code>unsafe</code> pointer
+                    write is used with a safety invariant that's trivially verified (each pixel belongs to exactly one
+                    tile).</p>
+                <div class="callout">
+                    <p>The unsafe tile write is the only <code>unsafe</code> block in the codebase. It replaces what would
+                        otherwise be per-pixel <code>Mutex</code> contention with a guaranteed-disjoint memory partition.
+                    </p>
+                </div>
+            </div>
+    
+            <!-- MATH: GAUSSIAN PRIMITIVES -->
+            <div class="page" id="page-math-gaussian">
+                <h1>Gaussian primitives</h1>
+                <p class="subtitle">The mathematical object at the core of 3DGS</p>
+                <h2>The 3D Gaussian function</h2>
+                <p>Each scene primitive is a 3D Gaussian density function centred at μ with covariance Σ:</p>
+                <div class="math-block">G(x) = exp(−½ (x − μ)ᵀ Σ⁻¹ (x − μ))</div>
+                <h2>Covariance factorisation</h2>
+                <p>Σ is parameterised as the product of a rotation matrix R and a diagonal scale matrix S, ensuring Σ is
+                    always positive semi-definite:</p>
+                <div class="math-block">Σ = R · S · Sᵀ · Rᵀ = (RS)(RS)ᵀ</div>
+                <p>In code, R is stored as a unit quaternion and S as log-scale (so optimisation can take unconstrained
+                    steps):</p>
+                <pre><span class="highlight-cmt">// Decode scale: always positive</span>
+    s = [log_scale[0].exp(), log_scale[1].exp(), log_scale[2].exp()]
+    
+    <span class="highlight-cmt">// Decode opacity: always in (0, 1)</span>
+    α = sigmoid(opacity_logit) = 1 / (1 + exp(−opacity_logit))</pre>
+                <h2>Why logit/log parameterisation?</h2>
+                <p>Adam takes unconstrained gradient steps. If we stored opacity directly as a float in (0,1), a gradient
+                    step could push it outside the valid range. Storing the logit (inverse sigmoid) means any real number is
+                    valid, and we decode to (0,1) at evaluation time. Same for scale — storing log-scale means any real
+                    number decodes to a positive scale via <code>exp</code>.</p>
+                <h2>Trainable parameters per Gaussian</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Raw storage</th>
+                            <th>Decoded form</th>
+                            <th>Count</th>
+                        </tr>
+                        <tr>
+                            <td>Position μ</td>
+                            <td>f32[3]</td>
+                            <td>World xyz</td>
+                            <td>3</td>
+                        </tr>
+                        <tr>
+                            <td>Rotation</td>
+                            <td>f32[4] quaternion</td>
+                            <td>3×3 rotation matrix R</td>
+                            <td>4</td>
+                        </tr>
+                        <tr>
+                            <td>Scale</td>
+                            <td>f32[3] log</td>
+                            <td>exp → positive scale</td>
+                            <td>3</td>
+                        </tr>
+                        <tr>
+                            <td>Opacity</td>
+                            <td>f32 logit</td>
+                            <td>sigmoid → (0,1)</td>
+                            <td>1</td>
+                        </tr>
+                        <tr>
+                            <td>SH coefficients</td>
+                            <td>f32[48]</td>
+                            <td>16 coeffs × 3 channels</td>
+                            <td>48</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3"><strong>Total</strong></td>
+                            <td><strong>59</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+    
+            <!-- MATH: COVARIANCE & EWA -->
+            <div class="page" id="page-math-covariance">
+                <h1>Covariance projection (EWA)</h1>
+                <p class="subtitle">Mapping 3D Gaussian ellipsoids to 2D screen splats</p>
+                <h2>The EWA splatting formula</h2>
+                <p>Based on Zwicker et al. 2001. The 2D screen covariance is:</p>
+                <div class="math-block">Σ′₂D = J · W · Σ₃D · Wᵀ · Jᵀ</div>
+                <p>where W is the view rotation (upper-left 3×3 of the view matrix) and J is the affine approximation
+                    Jacobian of the perspective projection at the Gaussian centre:</p>
+                <div class="math-block">J = [ fx/tz 0 −fx·tx/tz² ]<br> [ 0 fy/tz −fy·ty/tz² ]<br> [ 0 0 0 ]</div>
+                <h2>Conic representation</h2>
+                <p>For rasterization, we store the inverse 2×2 covariance (the <em>conic</em>) to avoid a matrix inverse at
+                    every pixel:</p>
+                <div class="math-block">Σ⁻¹ = 1/det · [ c −b ] where Σ = [ a b ]<br> [ −b a ] [ b c ]</div>
+                <p>Gaussian evaluation at pixel (dx, dy) from the centre:</p>
+                <div class="math-block">power = −½ (a·dx² + 2b·dx·dy + c·dy²)<br>alpha = σ(opacity_logit) · exp(power)</div>
+                <h2>Low-pass anti-aliasing filter</h2>
+                <p>A 0.3-pixel constant is added to the diagonal of Σ′₂D before inversion. This prevents Gaussian splats
+                    from becoming sub-pixel (infinitely sharp) and causing aliasing:</p>
+                <pre>sigma_2d[(0,0)] += <span class="highlight-num">0.3</span>;
+    sigma_2d[(1,1)] += <span class="highlight-num">0.3</span>;</pre>
+                <h2>Screen-space AABB</h2>
+                <p>The tight bounding box of the Gaussian splat (n_sigma = 3, covering 99.7% of density) is computed from
+                    the eigenvalues of the 2×2 covariance:</p>
+                <pre>mid = (a + c) / 2
+    disc = sqrt(((a−c)/2)² + b²)
+    λ₁ = mid + disc  (largest eigenvalue)
+    λ₂ = mid − disc
+    r = n_sigma × sqrt(max(λ₁, λ₂))</pre>
+            </div>
+    
+            <!-- MATH: SH -->
+            <div class="page" id="page-math-sh">
+                <h1>Spherical harmonics</h1>
+                <p class="subtitle">View-dependent colour via degree-3 real SH basis</p>
+                <h2>What SH gives us</h2>
+                <p>Each Gaussian can emit different colour depending on the viewing direction — mimicking specular
+                    highlights, subsurface scattering, and non-Lambertian surfaces. The colour for view direction
+                    <strong>d</strong> is:</p>
+                <div class="math-block">c(d) = Σ_{l=0}^{3} Σ_{m=−l}^{l} k_{lm} · Y_{lm}(d)</div>
+                <h2>Coefficient layout</h2>
+                <p>48 floats per Gaussian: 16 SH coefficients × 3 RGB channels, stored channel-major:</p>
+                <pre>sh_coeffs[0..16]  = Red channel (l=0 to l=3)
+    sh_coeffs[16..32] = Green channel
+    sh_coeffs[32..48] = Blue channel</pre>
+                <h2>Degree 0 (DC term)</h2>
+                <p>The degree-0 term gives a view-independent base colour:</p>
+                <div class="math-block">c_dc = 0.5 + SH_C0 · k₀₀, SH_C0 = 1 / (2√π) ≈ 0.2821</div>
+                <h2>Constants</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Degree</th>
+                            <th>Count</th>
+                            <th>Constant(s)</th>
+                        </tr>
+                        <tr>
+                            <td>l=0</td>
+                            <td>1</td>
+                            <td><code>SH_C0 = 0.28209479</code></td>
+                        </tr>
+                        <tr>
+                            <td>l=1</td>
+                            <td>3</td>
+                            <td><code>SH_C1 = 0.48860251</code></td>
+                        </tr>
+                        <tr>
+                            <td>l=2</td>
+                            <td>5</td>
+                            <td><code>SH_C2[0..5]</code></td>
+                        </tr>
+                        <tr>
+                            <td>l=3</td>
+                            <td>7</td>
+                            <td><code>SH_C3[0..7]</code></td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Learning rate</h2>
+                <p>Higher-degree SH coefficients use a 20× smaller learning rate than the DC term, preventing high-frequency
+                    colour noise from appearing early in training:</p>
+                <pre>lr_sh_dc   = <span class="highlight-num">0.0025</span>
+    lr_sh_rest = lr_sh_dc / <span class="highlight-num">20.0</span> = <span class="highlight-num">0.000125</span></pre>
+            </div>
+    
+            <!-- MATH: PROJECTION -->
+            <div class="page" id="page-math-projection">
+                <h1>Camera & projection</h1>
+                <p class="subtitle">Pinhole camera model, NDC mapping, frustum culling</p>
+                <h2>Pinhole camera model</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Field</th>
+                            <th>Meaning</th>
+                        </tr>
+                        <tr>
+                            <td>fx, fy</td>
+                            <td><code>Camera.fx / fy</code></td>
+                            <td>Focal lengths in pixels</td>
+                        </tr>
+                        <tr>
+                            <td>cx, cy</td>
+                            <td><code>Camera.cx / cy</code></td>
+                            <td>Principal point (image centre)</td>
+                        </tr>
+                        <tr>
+                            <td>W, H</td>
+                            <td><code>Camera.width / height</code></td>
+                            <td>Image resolution in pixels</td>
+                        </tr>
+                        <tr>
+                            <td>R, t</td>
+                            <td><code>Camera.c2w</code> upper 3×3, col 3</td>
+                            <td>Camera-to-world rotation + translation</td>
+                        </tr>
+                        <tr>
+                            <td>k1, k2, k3</td>
+                            <td><code>Camera.distortion</code></td>
+                            <td>Radial distortion (currently unused in rasterizer)</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Perspective projection</h2>
+                <p>World point P → screen pixel (sx, sy):</p>
+                <div class="math-block">p_cam = view · [P, 1]ᵀ<br>sx = fx · p_cam.x / p_cam.z + cx<br>sy = fy · p_cam.y /
+                    p_cam.z + cy</div>
+                <h2>NDC projection matrix</h2>
+                <p>OpenCV-convention pinhole camera to OpenGL NDC (for wgpu):</p>
+                <div class="math-block">[ 2fx/W 0 (W−2cx)/W 0 ]<br>[ 0 −2fy/H (H−2cy)/H 0 ]<br>[ 0 0 −(f+n)/(f−n) −2fn/(f−n)
+                    ]<br>[ 0 0 −1 0 ]</div>
+                <h2>Frustum culling</h2>
+                <p>Six planes extracted from the MVP matrix (Gribb-Hartmann method). Sphere test using Gaussian position and
+                    bounding radius keeps only visible Gaussians. Reduces GPU/CPU work proportionally to scene complexity.
+                </p>
+            </div>
+    
+            <!-- API: Gaussian3D -->
+            <div class="page" id="page-api-gaussian">
+                <h1>Gaussian3D</h1>
+                <p class="subtitle"><code>src/math/mod.rs</code> · <code>#[repr(C)]</code> ·
+                    <code>impl Pod + Zeroable</code></p>
+                <h2>Fields</h2>
+                <div
+                    style="background:var(--surface-soft);border:0.5px solid var(--border);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px">
+                    <div class="struct-field"><span class="field-name">position</span><span class="field-type">[f32;
+                            3]</span><span class="field-desc">World-space centre μ. Directly optimised by Adam.</span></div>
+                    <div class="struct-field"><span class="field-name">opacity_logit</span><span
+                            class="field-type">f32</span><span class="field-desc">Pre-sigmoid opacity. Decode:
+                            <code>sigmoid(opacity_logit)</code></span></div>
+                    <div class="struct-field"><span class="field-name">rotation</span><span class="field-type">[f32;
+                            4]</span><span class="field-desc">Unit quaternion [w, x, y, z]. Renormalised every Adam
+                            step.</span></div>
+                    <div class="struct-field"><span class="field-name">log_scale</span><span class="field-type">[f32;
+                            3]</span><span class="field-desc">Log scale per axis. Decode:
+                            <code>[log_scale[i].exp()]</code></span></div>
+                    <div class="struct-field"><span class="field-name">sh_coeffs</span><span class="field-type">[f32;
+                            48]</span><span class="field-desc">16 SH coefficients × 3 RGB channels. Channel-major
+                            layout.</span></div>
+                </div>
+                <h2>Methods</h2>
+                <pre><span class="highlight-cmt">// Constructor: identity rotation, small scale, low opacity</span>
+    <span class="highlight-kw">fn</span> new(position: [f32; 3]) -> Gaussian3D
+    
+    <span class="highlight-cmt">// Decode opacity from logit space → (0, 1)</span>
+    <span class="highlight-kw">fn</span> opacity(&self) -> f32
+    
+    <span class="highlight-cmt">// Decode scale from log space → (0, ∞)</span>
+    <span class="highlight-kw">fn</span> scale(&self) -> [f32; 3]
+    
+    <span class="highlight-cmt">// Decode rotation quaternion as nalgebra UnitQuaternion</span>
+    <span class="highlight-kw">fn</span> rotation_quat(&self) -> UnitQuaternion&lt;f32&gt;
+    
+    <span class="highlight-cmt">// Build 3×3 world-space covariance Σ = R·S·Sᵀ·Rᵀ</span>
+    <span class="highlight-kw">fn</span> covariance_3d(&self) -> Matrix3&lt;f32&gt;
+    
+    <span class="highlight-cmt">// Project 3D covariance to 2D screen space</span>
+    <span class="highlight-kw">fn</span> projected_covariance_2d(&self, view: &Matrix4&lt;f32&gt;, focal: (f32,f32)) -> Matrix3&lt;f32&gt;
+    
+    <span class="highlight-cmt">// Get base (view-independent) colour from DC SH coefficient</span>
+    <span class="highlight-kw">fn</span> base_color(&self) -> [f32; 3]</pre>
+            </div>
+    
+            <!-- API: Camera -->
+            <div class="page" id="page-api-camera">
+                <h1>Camera</h1>
+                <p class="subtitle"><code>src/math/mod.rs</code> · Pinhole camera model</p>
+                <h2>Fields</h2>
+                <div
+                    style="background:var(--surface-soft);border:0.5px solid var(--border);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px">
+                    <div class="struct-field"><span class="field-name">width, height</span><span
+                            class="field-type">u32</span><span class="field-desc">Image resolution in pixels</span></div>
+                    <div class="struct-field"><span class="field-name">fx, fy</span><span class="field-type">f32</span><span
+                            class="field-desc">Focal lengths in pixels</span></div>
+                    <div class="struct-field"><span class="field-name">cx, cy</span><span class="field-type">f32</span><span
+                            class="field-desc">Principal point — typically (width/2, height/2)</span></div>
+                    <div class="struct-field"><span class="field-name">c2w</span><span
+                            class="field-type">[[f32;4];4]</span><span class="field-desc">Camera-to-world 4×4 homogeneous
+                            transform</span></div>
+                    <div class="struct-field"><span class="field-name">distortion</span><span class="field-type">[f32;
+                            3]</span><span class="field-desc">Radial distortion coefficients [k1, k2, k3]. Currently parsed
+                            but not applied in rasterizer.</span></div>
+                </div>
+                <h2>Methods</h2>
+                <pre><span class="highlight-cmt">// World-to-camera matrix (inverse of c2w)</span>
+    <span class="highlight-kw">fn</span> view_matrix(&self) -> Matrix4&lt;f32&gt;
+    
+    <span class="highlight-cmt">// Perspective projection matrix for NDC mapping</span>
+    <span class="highlight-kw">fn</span> projection_matrix(&self, near: f32, far: f32) -> Matrix4&lt;f32&gt;
+    
+    <span class="highlight-cmt">// (fx, fy) focal length pair</span>
+    <span class="highlight-kw">fn</span> focal(&self) -> (f32, f32)</pre>
+            </div>
+    
+            <!-- API: RASTERIZER -->
+            <div class="page" id="page-api-rasterizer">
+                <h1>CPU rasterizer</h1>
+                <p class="subtitle"><code>src/cpu/rasterizer.rs</code> · Tile-based, Rayon-parallel <span
+                        class="badge badge-cpu">CPU</span></p>
+                <h2>rasterize()</h2>
+                <pre><span class="highlight-kw">pub fn</span> rasterize(
+        gaussians: &[Gaussian3D],
+        camera: &Camera,
+        bg_color: [f32; 3],
+    ) -> Framebuffer</pre>
+                <p>Main entry point. Must be called from <code>tokio::task::spawn_blocking</code> — it blocks the calling
+                    thread.</p>
+                <h2>Algorithm</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Step</th>
+                            <th>Work</th>
+                            <th>Parallelism</th>
+                        </tr>
+                        <tr>
+                            <td>1. Project</td>
+                            <td>Each Gaussian → SplatInfo2D (screen pos, conic, colour, AABB)</td>
+                            <td>Rayon par_iter</td>
+                        </tr>
+                        <tr>
+                            <td>2. Sort</td>
+                            <td>Back-to-front by depth (unstable sort)</td>
+                            <td>Single-threaded</td>
+                        </tr>
+                        <tr>
+                            <td>3. Tile assign</td>
+                            <td>Each splat's tile-space AABB → tile lists</td>
+                            <td>Single-threaded</td>
+                        </tr>
+                        <tr>
+                            <td>4. Rasterize</td>
+                            <td>Per tile: alpha-composite front-to-back with early termination at T < 0.0001</td>
+                            <td>Rayon par_iter over tiles</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Framebuffer</h2>
+                <pre><span class="highlight-kw">pub struct</span> Framebuffer {
+        <span class="highlight-kw">pub</span> width: usize,
+        <span class="highlight-kw">pub</span> height: usize,
+        <span class="highlight-kw">pub</span> data: Vec&lt;f32&gt;,  <span class="highlight-cmt">// RGBA linear, row-major</span>
+    }
+    
+    <span class="highlight-cmt">// Convert linear → sRGB u8 for PNG export</span>
+    <span class="highlight-kw">fn</span> to_u8_srgb(&self) -> Vec&lt;u8&gt;</pre>
+                <h2>Constants</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Constant</th>
+                            <th>Value</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td><code>TILE_SIZE</code></td>
+                            <td>16</td>
+                            <td>16×16 pixel tiles — matches GPU warp width</td>
+                        </tr>
+                        <tr>
+                            <td><code>ALPHA_THRESHOLD</code></td>
+                            <td>1/255</td>
+                            <td>Skip sub-visible Gaussians</td>
+                        </tr>
+                        <tr>
+                            <td><code>TRANSMITTANCE_STOP</code></td>
+                            <td>0.0001</td>
+                            <td>Early ray termination — pixel is full</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+    
+            <!-- API: GPU -->
+            <div class="page" id="page-api-gpu">
+                <h1>GPU context</h1>
+                <p class="subtitle"><code>src/gpu/context.rs</code> · wgpu device management <span
+                        class="badge badge-gpu">GPU</span></p>
+                <div class="warn-box">
+                    <p>Requires <code>--features gpu</code>. Compiles to a stub that returns an error at runtime if the
+                        feature is not enabled.</p>
+                </div>
+                <h2>GpuContext::new()</h2>
+                <pre><span class="highlight-kw">pub async fn</span> new() -> Result&lt;GpuContext&gt;</pre>
+                <p>Requests a high-performance adapter (discrete GPU preferred). Logs the adapter name and backend. Returns
+                    error if no compatible GPU is found — callers should fall back to CPU.</p>
+                <h2>Buffer helpers</h2>
+                <pre><span class="highlight-cmt">// Upload Vec data → STORAGE | COPY_DST | COPY_SRC buffer</span>
+    <span class="highlight-kw">fn</span> upload_buffer&lt;T: Pod&gt;(&self, data: &[T], label: &str) -> Buffer
+    
+    <span class="highlight-cmt">// Allocate empty output buffer</span>
+    <span class="highlight-kw">fn</span> output_buffer(&self, size_bytes: u64, label: &str) -> Buffer
+    
+    <span class="highlight-cmt">// Staging buffer for GPU→CPU readback</span>
+    <span class="highlight-kw">fn</span> readback_buffer(&self, size_bytes: u64) -> Buffer
+    
+    <span class="highlight-cmt">// Submit command encoder and poll until complete</span>
+    <span class="highlight-kw">async fn</span> submit_and_wait(&self, encoder: CommandEncoder)
+    
+    <span class="highlight-cmt">// Read GPU buffer back to CPU Vec</span>
+    <span class="highlight-kw">async fn</span> readback&lt;T: Pod + Clone&gt;(&self, buf: &Buffer, count: usize) -> Vec&lt;T&gt;</pre>
+                <h2>gpu_available()</h2>
+                <pre><span class="highlight-kw">pub async fn</span> gpu_available() -> bool</pre>
+                <p>Safe probe — does not panic if no GPU exists. Use this before calling <code>GpuContext::new()</code> if
+                    you want to suppress the error log on headless machines.</p>
+            </div>
+    
+            <!-- API: OPTIMIZER -->
+            <div class="page" id="page-api-optimizer">
+                <h1>Optimizer</h1>
+                <p class="subtitle"><code>src/pipeline/optimizer.rs</code> · Adam + densification</p>
+                <h2>adam_step()</h2>
+                <pre><span class="highlight-kw">pub fn</span> adam_step(
+        gaussians: &<span class="highlight-kw">mut</span> [Gaussian3D],
+        grads: &[GaussianGrad],
+        state: &<span class="highlight-kw">mut</span> AdamState,
+        cfg: &TrainConfig,
+    )</pre>
+                <p>Updates all Gaussian parameters using the Adam algorithm with bias correction. Quaternions are
+                    renormalised after every step. Parallelised over Gaussians with Rayon.</p>
+                <h2>AdamState</h2>
+                <pre><span class="highlight-kw">pub struct</span> AdamState {
+        <span class="highlight-kw">pub</span> m1: Vec&lt;f32&gt;,          <span class="highlight-cmt">// first moment, shape [N × 59]</span>
+        <span class="highlight-kw">pub</span> m2: Vec&lt;f32&gt;,          <span class="highlight-cmt">// second moment</span>
+        <span class="highlight-kw">pub</span> grad_accum: Vec&lt;f32&gt;,  <span class="highlight-cmt">// accumulated screen gradient norm</span>
+        <span class="highlight-kw">pub</span> grad_denom: Vec&lt;u32&gt;,  <span class="highlight-cmt">// count for average</span>
+        <span class="highlight-kw">pub</span> t: usize,              <span class="highlight-cmt">// iteration (for bias correction)</span>
+    }</pre>
+                <h2>densify_and_prune()</h2>
+                <pre><span class="highlight-kw">pub fn</span> densify_and_prune(
+        gaussians: &<span class="highlight-kw">mut</span> Vec&lt;Gaussian3D&gt;,
+        state: &<span class="highlight-kw">mut</span> AdamState,
+        cfg: &TrainConfig,
+        scene_extent: f32,
+    )</pre>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Action</th>
+                            <th>Condition</th>
+                            <th>Effect</th>
+                        </tr>
+                        <tr>
+                            <td>Clone</td>
+                            <td>High 2D gradient AND small scale</td>
+                            <td>Add a copy near the original — fills under-reconstructed regions</td>
+                        </tr>
+                        <tr>
+                            <td>Split</td>
+                            <td>High 2D gradient AND large scale</td>
+                            <td>Replace with 2 smaller Gaussians along the major axis</td>
+                        </tr>
+                        <tr>
+                            <td>Prune (opacity)</td>
+                            <td>α < prune_opacity_thresh</td>
+                            <td>Remove transparent Gaussians</td>
+                        </tr>
+                        <tr>
+                            <td>Prune (size)</td>
+                            <td>max_scale > 0.1 × scene_extent</td>
+                            <td>Remove outlier-sized Gaussians</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>GaussianGrad</h2>
+                <pre><span class="highlight-kw">pub struct</span> GaussianGrad {
+        <span class="highlight-kw">pub</span> d_position:      [f32; 3],
+        <span class="highlight-kw">pub</span> d_rotation:      [f32; 4],
+        <span class="highlight-kw">pub</span> d_log_scale:     [f32; 3],
+        <span class="highlight-kw">pub</span> d_opacity_logit: f32,
+        <span class="highlight-kw">pub</span> d_sh:            [f32; 48],
+        <span class="highlight-kw">pub</span> screen_grad_norm: f32,   <span class="highlight-cmt">// for densification threshold</span>
+    }</pre>
+            </div>
+    
+            <!-- API: SFM -->
+            <div class="page" id="page-api-sfm">
+                <h1>SfM pipeline</h1>
+                <p class="subtitle"><code>src/pipeline/sfm.rs</code> · Frame extraction, COLMAP, point cloud parsing</p>
+                <h2>extract_frames()</h2>
+                <pre><span class="highlight-kw">pub async fn</span> extract_frames(
+        video_path: &Path,
+        output_dir: &Path,
+        fps: f32,
+    ) -> Result&lt;Vec&lt;PathBuf&gt;&gt;</pre>
+                <p>Spawns ffmpeg as a <code>tokio::process::Command</code>. Non-blocking.</p>
+                <h2>run_colmap()</h2>
+                <pre><span class="highlight-kw">pub async fn</span> run_colmap(
+        image_dir: &Path,
+        workspace_dir: &Path,
+        use_gpu: bool,
+    ) -> Result&lt;()&gt;</pre>
+                <p>Runs three COLMAP commands in sequence. Each is awaited independently — if one fails, the pipeline
+                    surfaces the error immediately.</p>
+                <h2>parse_points3d_bin()</h2>
+                <pre><span class="highlight-kw">pub fn</span> parse_points3d_bin(data: &[u8]) -> Result&lt;Vec&lt;SfMPoint&gt;&gt;</pre>
+                <p>Parses COLMAP's binary <code>points3D.bin</code> format. Track data (image observations) is skipped.
+                    Returns <code>SfMPoint</code> with xyz, RGB, reprojection error, and track length.</p>
+                <h2>gaussians_from_sfm()</h2>
+                <pre><span class="highlight-kw">pub fn</span> gaussians_from_sfm(points: &[SfMPoint]) -> Vec&lt;Gaussian3D&gt;</pre>
+                <p>Converts SfM point cloud to initial Gaussians. Computes per-point initial scale from K=3
+                    nearest-neighbour distances using a spatial sort for O(n log n) complexity.</p>
+            </div>
+    
+            <!-- SHADER: WGSL -->
+            <div class="page" id="page-shader-wgsl">
+                <h1>splat.wgsl</h1>
+                <p class="subtitle"><code>shaders/splat.wgsl</code> · WGSL compute shader · Two-pass GPU pipeline <span
+                        class="badge badge-gpu">GPU</span></p>
+                <h2>Entry points</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Function</th>
+                            <th>Workgroup size</th>
+                            <th>One thread per</th>
+                        </tr>
+                        <tr>
+                            <td><code>@compute fn project</code></td>
+                            <td>256</td>
+                            <td>1 Gaussian</td>
+                        </tr>
+                        <tr>
+                            <td><code>@compute fn rasterize</code></td>
+                            <td>16 × 16</td>
+                            <td>1 pixel in a tile</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Bindings — project pass (group 0)</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Binding</th>
+                            <th>Type</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td>0</td>
+                            <td><code>array&lt;Gaussian3D&gt;</code> read</td>
+                            <td>Input Gaussians</td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td><code>array&lt;SplatInfo2D&gt;</code> read_write</td>
+                            <td>Output projected splats</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td><code>CameraUniforms</code> uniform</td>
+                            <td>View matrix, focal, resolution</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td><code>array&lt;u32&gt;</code> read_write</td>
+                            <td>Depth sort keys (bit-flipped float for radix sort)</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Bindings — rasterize pass (group 1)</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Binding</th>
+                            <th>Type</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td>0</td>
+                            <td><code>array&lt;SplatInfo2D&gt;</code> read</td>
+                            <td>Sorted splats from pass 1</td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td><code>array&lt;vec2&lt;u32&gt;&gt;</code> read</td>
+                            <td>Tile ranges (start, end) after sort</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td><code>texture_storage_2d&lt;rgba8unorm, write&gt;</code></td>
+                            <td>Output framebuffer</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Depth key encoding</h2>
+                <p>Camera-space depth (positive float) is encoded as a sortable u32 by bit-flipping. This allows a standard
+                    ascending radix sort to produce back-to-front order:</p>
+                <pre><span class="highlight-cmt">// In WGSL</span>
+    depth_keys[idx] = ~bitcast&lt;u32&gt;(tz);  <span class="highlight-cmt">// flip all bits → back-to-front order</span></pre>
+            </div>
+    
+            <!-- CFG: TRAIN -->
+            <div class="page" id="page-cfg-train">
+                <h1>TrainConfig</h1>
+                <p class="subtitle">All hyper-parameters with defaults from the 3DGS paper</p>
+                <div class="param-grid">
+                    <div class="param-card">
+                        <div class="param-name">num_iterations</div>
+                        <div class="param-default">Default: 30_000</div>
+                        <div class="param-desc">Total training steps. 15k gives decent results; 30k is the paper default.
+                        </div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">lr_position</div>
+                        <div class="param-default">Default: 0.00016</div>
+                        <div class="param-desc">Adam learning rate for Gaussian centres. Very small — position is sensitive.
+                        </div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">lr_rotation</div>
+                        <div class="param-default">Default: 0.001</div>
+                        <div class="param-desc">Learning rate for quaternion components.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">lr_scale</div>
+                        <div class="param-default">Default: 0.005</div>
+                        <div class="param-desc">Learning rate for log-scale axes.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">lr_opacity</div>
+                        <div class="param-default">Default: 0.05</div>
+                        <div class="param-desc">Largest LR — opacity converges fast.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">lr_sh_dc</div>
+                        <div class="param-default">Default: 0.0025</div>
+                        <div class="param-desc">Learning rate for degree-0 SH (view-independent colour).</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">lr_sh_rest</div>
+                        <div class="param-default">Default: 0.000125</div>
+                        <div class="param-desc">20× smaller than lr_sh_dc. Prevents early high-frequency colour noise.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">beta1</div>
+                        <div class="param-default">Default: 0.9</div>
+                        <div class="param-desc">Adam first moment decay. Standard value.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">beta2</div>
+                        <div class="param-default">Default: 0.999</div>
+                        <div class="param-desc">Adam second moment decay.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">eps</div>
+                        <div class="param-default">Default: 1e-8</div>
+                        <div class="param-desc">Adam denominator stability term.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">densify_from_iter</div>
+                        <div class="param-default">Default: 500</div>
+                        <div class="param-desc">Start densification after this many iterations (let positions settle first).
+                        </div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">densify_until_iter</div>
+                        <div class="param-default">Default: 15_000</div>
+                        <div class="param-desc">Stop densification — Gaussians should be well-placed by now.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">densify_grad_threshold</div>
+                        <div class="param-default">Default: 0.0002</div>
+                        <div class="param-desc">Average 2D screen gradient norm threshold to trigger clone/split.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">opacity_reset_iter</div>
+                        <div class="param-default">Default: 3000</div>
+                        <div class="param-desc">Reset all opacities to 0.01 every N iters — forces re-learning, kills
+                            floaters.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">prune_opacity_thresh</div>
+                        <div class="param-default">Default: 0.005</div>
+                        <div class="param-desc">Remove Gaussians with opacity below this after each densification.</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-name">max_gaussians</div>
+                        <div class="param-default">Default: 3_000_000</div>
+                        <div class="param-desc">Hard cap on total Gaussians. Densification stops when this is reached.</div>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- CFG: FEATURES -->
+            <div class="page" id="page-cfg-features">
+                <h1>Cargo features</h1>
+                <p class="subtitle">Build-time feature flags</p>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Activates</th>
+                            <th>Additional dep</th>
+                        </tr>
+                        <tr>
+                            <td><code>cpu</code> (default)</td>
+                            <td>CPU rasterizer, all math, SfM pipeline</td>
+                            <td>none</td>
+                        </tr>
+                        <tr>
+                            <td><code>gpu</code></td>
+                            <td>wgpu context, WGSL compute shaders, GPU rasterizer</td>
+                            <td>wgpu 0.19</td>
+                        </tr>
+                        <tr>
+                            <td><code>video</code></td>
+                            <td>ffmpeg-next bindings (alternative to subprocess)</td>
+                            <td>ffmpeg-next 6.0</td>
+                        </tr>
+                        <tr>
+                            <td><code>python</code></td>
+                            <td>PyO3 FFI module (<code>gaussian_splat.pyd</code> / <code>.so</code>)</td>
+                            <td>pyo3 0.20</td>
+                        </tr>
+                        <tr>
+                            <td><code>full</code></td>
+                            <td>All of the above</td>
+                            <td>all</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Release profile</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Setting</th>
+                            <th>Value</th>
+                            <th>Effect</th>
+                        </tr>
+                        <tr>
+                            <td><code>opt-level</code></td>
+                            <td>3</td>
+                            <td>Maximum LLVM optimisation</td>
+                        </tr>
+                        <tr>
+                            <td><code>lto</code></td>
+                            <td>fat</td>
+                            <td>Cross-crate link-time optimisation — removes dead code across deps</td>
+                        </tr>
+                        <tr>
+                            <td><code>codegen-units</code></td>
+                            <td>1</td>
+                            <td>Single LTO unit — slower compile, fastest runtime</td>
+                        </tr>
+                        <tr>
+                            <td><code>panic</code></td>
+                            <td>abort</td>
+                            <td>No unwinding overhead</td>
+                        </tr>
+                        <tr>
+                            <td><code>strip</code></td>
+                            <td>true</td>
+                            <td>Strip debug symbols from binary</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+    
+            <!-- GUIDE: GPU vs CPU -->
+            <div class="page" id="page-guide-gpu">
+                <h1>GPU vs CPU guide</h1>
+                <p class="subtitle">Choosing the right compute backend for your environment</p>
+                <h2>Decision matrix</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>Recommended</th>
+                        </tr>
+                        <tr>
+                            <td>Training speed (interactive feedback)</td>
+                            <td>GPU always</td>
+                        </tr>
+                        <tr>
+                            <td>Headless CI / render farm node</td>
+                            <td>CPU (no GPU driver requirement)</td>
+                        </tr>
+                        <tr>
+                            <td>macOS Apple Silicon</td>
+                            <td>GPU (wgpu Metal backend, very fast)</td>
+                        </tr>
+                        <tr>
+                            <td>Low-memory device (&lt;4GB VRAM)</td>
+                            <td>CPU (avoids VRAM OOM on large scenes)</td>
+                        </tr>
+                        <tr>
+                            <td>Production server (no display)</td>
+                            <td>CPU with Rayon (predictable)</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Automatic fallback</h2>
+                <pre><span class="highlight-kw">let</span> pipeline = Pipeline::new(cfg).<span class="highlight-kw">await</span>?;
+    <span class="highlight-cmt">// If GPU init fails, Pipeline logs a warning and continues with CPU.
+    // No code change needed.</span></pre>
+                <h2>Manual override</h2>
+                <pre><span class="highlight-kw">let</span> available = gpu::gpu_available().<span class="highlight-kw">await</span>;
+    cfg.use_gpu = available && std::env::var(<span class="highlight-str">"GSPLAT_NO_GPU"</span>).is_err();</pre>
+                <h2>Performance expectations</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Backend</th>
+                            <th>1M Gaussian render</th>
+                            <th>Training iteration</th>
+                        </tr>
+                        <tr>
+                            <td>GPU (RTX 3080)</td>
+                            <td>~3ms</td>
+                            <td>~80ms</td>
+                        </tr>
+                        <tr>
+                            <td>CPU (16-core Ryzen)</td>
+                            <td>~180ms</td>
+                            <td>~400ms</td>
+                        </tr>
+                        <tr>
+                            <td>CPU (4-core laptop)</td>
+                            <td>~600ms</td>
+                            <td>~1500ms</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+    
+            <!-- GUIDE: PYTHON -->
+            <div class="page" id="page-guide-python">
+                <h1>Python bindings</h1>
+                <p class="subtitle">Using the pipeline from Python via PyO3 / maturin</p>
+                <h2>Build the wheel</h2>
+                <pre>pip install maturin
+    maturin build --release --features python
+    pip install target/wheels/gaussian_splat-*.whl</pre>
+                <h2>Usage</h2>
+                <pre><span class="highlight-kw">import</span> gaussian_splat as gs
+    <span class="highlight-kw">import</span> asyncio
+    
+    <span class="highlight-kw">async def</span> main():
+        cfg = gs.PipelineConfig(<span class="highlight-str">"scene.mp4"</span>, <span class="highlight-str">"./output"</span>)
+        cfg.use_gpu = <span class="highlight-kw">True</span>
+        cfg.train.num_iterations = <span class="highlight-num">15000</span>
+    
+        pipeline = <span class="highlight-kw">await</span> gs.Pipeline.new(cfg)
+        output_path = <span class="highlight-kw">await</span> pipeline.run()
+        print(<span class="highlight-str">f"Done: {output_path}"</span>)
+    
+    asyncio.run(main())</pre>
+                <div class="callout">
+                    <p>The Python bindings expose an async interface via PyO3's <code>pyo3-asyncio</code> integration. The
+                        Tokio runtime is created once and shared across all pipeline calls in the process.</p>
+                </div>
+                <h2>Load and inspect Gaussians</h2>
+                <pre>gaussians = gs.load_ply(<span class="highlight-str">"output/output.ply"</span>)
+    print(<span class="highlight-str">f"Count: {len(gaussians)}"</span>)
+    print(<span class="highlight-str">f"First position: {gaussians[0].position}"</span>)
+    print(<span class="highlight-str">f"First opacity: {gaussians[0].opacity():.3f}"</span>)</pre>
+            </div>
+    
+            <!-- GUIDE: PERFORMANCE -->
+            <div class="page" id="page-guide-perf">
+                <h1>Performance tuning</h1>
+                <p class="subtitle">Tips for faster training and lower memory use</p>
+                <h2>Reduce scene size</h2>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Config</th>
+                            <th>Effect</th>
+                            <th>Trade-off</th>
+                        </tr>
+                        <tr>
+                            <td><code>max_gaussians = 500_000</code></td>
+                            <td>50% less VRAM/RAM, 50% faster iterations</td>
+                            <td>Lower detail ceiling</td>
+                        </tr>
+                        <tr>
+                            <td><code>extract_fps = 1.0</code></td>
+                            <td>Fewer frames → faster COLMAP</td>
+                            <td>May miss fast-moving objects</td>
+                        </tr>
+                        <tr>
+                            <td><code>densify_until_iter = 8000</code></td>
+                            <td>Shorter densification window</td>
+                            <td>Fewer Gaussians in final model</td>
+                        </tr>
+                    </table>
+                </div>
+                <h2>Speed up COLMAP</h2>
+                <pre><span class="highlight-cmt"># Restrict to sequential matching for large frame sets</span>
+    gsplat --input scene.mp4 --output out --colmap-matcher sequential
+    
+    <span class="highlight-cmt"># Use GPU SIFT (3-5x faster than CPU SIFT)</span>
+    gsplat --input scene.mp4 --output out --gpu</pre>
+                <h2>Profile with Tokio Console</h2>
+                <pre>RUSTFLAGS="--cfg tokio_unstable" cargo build --release --features full
+    RUST_LOG=debug ./target/release/gsplat --input scene.mp4 --output out</pre>
+                <p>Install <code>tokio-console</code> to visualise async task execution and identify blocking tasks that
+                    should be moved to <code>spawn_blocking</code>.</p>
+                <h2>Memory usage estimate</h2>
+                <pre><span class="highlight-cmt">// Rough formula:
+    // RAM = N × (240B Gaussian + 2 × 59 × 4B Adam state)
+    // For 1M Gaussians: 1M × (240 + 472) ≈ 680MB RAM
+    // GPU VRAM: same for buffers + framebuffer (W×H×16B)</span></pre>
+                <div class="callout">
+                    <p>Adam state is the largest allocation: <code>N × 59 × 2 × 4 bytes</code> (m1 + m2). For 3M Gaussians
+                        this is ~1.4GB. If RAM is tight, reduce <code>max_gaussians</code> or switch to a half-precision
+                        Adam variant.</p>
+                </div>
+            </div>
+    
+        </main>
+    </div>
+    
+    <script>
+        function showPage(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            const pg = document.getElementById('page-' + id);
+            if (pg) { pg.classList.add('active'); pg.closest('.content').scrollTop = 0; }
+            if (el) el.classList.add('active');
+        }
+    
+        function searchDocs(q) {
+            q = q.toLowerCase().trim();
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(l => {
+                const text = l.textContent.toLowerCase();
+                l.style.opacity = (!q || text.includes(q)) ? '1' : '0.35';
+            });
+        }
+    
+        document.getElementById('search-inp').addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                const q = e.target.value.toLowerCase().trim();
+                if (!q) return;
+                const match = [...document.querySelectorAll('.nav-link')].find(l =>
+                    l.textContent.toLowerCase().includes(q) && getComputedStyle(l).opacity !== '0.35'
+                );
+                if (match) match.click();
+            }
+        });
+    </script>
+</body>
+</html>

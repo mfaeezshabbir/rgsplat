@@ -1,0 +1,80 @@
+[package]
+name = "gaussian_splat_pipeline"
+version = "0.1.0"
+edition = "2024"
+description = "3D Gaussian Splatting for real-time radiance field rendering, in Rust"
+license = "MIT"
+readme = "Readme.md"
+
+[lib]
+name = "gaussian_splat_pipeline"
+# rlib for tests/bin, cdylib so maturin can build a Python extension module.
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "gsplat"
+path = "src/main.rs"
+
+[dependencies]
+# Linear algebra / math
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+
+# Data-parallelism
+rayon = "1.10"
+
+# Zero-copy GPU/byte casting
+bytemuck = { version = "1.18", features = ["derive"] }
+
+# Serialization (configs, transforms.json, checkpoints)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging / progress
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+indicatif = "0.17"
+
+# Async runtime + subprocess management (ffmpeg / COLMAP)
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs", "sync", "io-util"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Image decoding for training targets
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+# Memory-mapped reads of large COLMAP binaries
+memmap2 = "0.9"
+
+# Optional GPU acceleration
+wgpu = { version = "0.20", optional = true }
+
+# Optional Python bindings (built via maturin)
+pyo3 = { version = "0.22", optional = true, features = ["extension-module", "abi3-py39"] }
+
+[dev-dependencies]
+approx = "0.5"
+tempfile = "3"
+
+[features]
+default = []
+# GPU compute path (projection + rasterization via wgpu)
+gpu = ["dep:wgpu"]
+# Video decoding marker feature (frame extraction uses the external `ffmpeg` binary)
+video = []
+# Python bindings
+python = ["dep:pyo3"]
+# Everything
+full = ["gpu", "video"]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1  # math-heavy crate is painfully slow at opt-level 0
