@@ -33,23 +33,45 @@ For detailed documentation, including:
 
 Please see the [full documentation](./docs/docs.html) in the `docs/` directory.
 
+## Quick Install
+
+One command to install everything (Rust, ffmpeg, COLMAP, and rgsplat):
+
+**Linux / macOS**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/mfaeezshabbir/rgsplat/main/scripts/install.sh)
+```
+
+**Windows (PowerShell as Admin)**
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+Or clone and run the scripts locally:
+```bash
+git clone https://github.com/mfaeezshabbir/rgsplat.git
+cd rgsplat
+bash scripts/install.sh          # Linux / macOS
+powershell -File scripts\install.ps1   # Windows
+```
+
 ## Quick Start
 
 ```bash
 # Basic run (CPU)
-cargo run --release -- --input my_scene.mp4 --output ./output
+rgsplat --input my_scene.mp4 --output ./output
 
 # Use a directory of pre-extracted frames instead of a video
-cargo run --release -- --input ./frames --output ./output
+rgsplat --input ./frames --output ./output
 
 # Reuse an existing COLMAP workspace under --output (skip ffmpeg + COLMAP)
-cargo run --release -- --input ./frames --output ./output --skip-sfm
+rgsplat --input ./frames --output ./output --skip-sfm
 
 # Build with the optional GPU projection path
 cargo run --release --features gpu -- --input my_scene.mp4 --output ./output --gpu
 
 # View all options
-cargo run --release -- --help
+rgsplat --help
 ```
 
 The binary is named `rgsplat`.
