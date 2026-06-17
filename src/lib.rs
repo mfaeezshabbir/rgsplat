@@ -1,4 +1,4 @@
-//! # Gaussian Splatting Pipeline
+//! # rgsplat
 //!
 //! A Rust implementation of 3D Gaussian Splatting for real-time radiance field
 //! rendering (Kerbl et al., SIGGRAPH 2023). The crate is organized as:

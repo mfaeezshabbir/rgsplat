@@ -44,7 +44,7 @@ impl GpuContext {
         let (device, queue) = adapter
             .request_device(
                 &DeviceDescriptor {
-                    label: Some("gsplat_device"),
+                    label: Some("rgsplat_device"),
                     required_features: Features::empty(),
                     required_limits: Limits::default(),
                 },

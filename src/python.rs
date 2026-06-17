@@ -3,7 +3,7 @@
 //! Exposes a thin wrapper around the pipeline so it can be driven from Python:
 //!
 //! ```python
-//! import gaussian_splat_pipeline as gsp
+//! import rgsplat as gsp
 //! gsp.run_pipeline("scene.mp4", "./out", iterations=30000, gpu=False)
 //! ```
 
@@ -52,7 +52,7 @@ fn ply_to_splat(input: String, output: String) -> PyResult<usize> {
 }
 
 #[pymodule]
-fn gaussian_splat_pipeline(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn rgsplat(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(run_pipeline, m)?)?;
     m.add_function(wrap_pyfunction!(ply_to_splat, m)?)?;

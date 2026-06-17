@@ -52,7 +52,7 @@ cargo run --release --features gpu -- --input my_scene.mp4 --output ./output --g
 cargo run --release -- --help
 ```
 
-The binary is named `gsplat`.
+The binary is named `rgsplat`.
 
 ## Pipeline Stages
 

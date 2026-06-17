@@ -10,7 +10,7 @@
     <div class="doc-wrap">
         <nav class="sidebar">
             <div style="padding:16px 16px 8px">
-                <div style="font-size:13px;font-weight:500;color:var(--text)">gaussian_splat_pipeline</div>
+                <div style="font-size:13px;font-weight:500;color:var(--text)">rgsplat</div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:2px">v0.1.0 · Rust 2021</div>
             </div>
             <div class="search-bar">
@@ -66,7 +66,7 @@
     
             <!-- OVERVIEW -->
             <div class="page active" id="page-overview">
-                <h1>gaussian_splat_pipeline <span class="badge badge-async">async</span></h1>
+                <h1>rgsplat <span class="badge badge-async">async</span></h1>
                 <p class="subtitle">High-performance 3D Gaussian Splatting from video — Rust 2021 · GPU + CPU fallback ·
                     Tokio async · Rayon parallel</p>
                 <div class="toc">
@@ -234,7 +234,7 @@
     maturin build --release --features python</pre>
                 <h2>Add as library dependency</h2>
                 <pre>[dependencies]
-    gaussian_splat = { git = <span class="highlight-str">"https://github.com/your-org/gaussian_splat_pipeline"</span>, features = [<span class="highlight-str">"gpu"</span>] }</pre>
+    rgsplat = { git = <span class="highlight-str">"https://github.com/your-org/rgsplat"</span>, features = [<span class="highlight-str">"gpu"</span>] }</pre>
                 <div class="callout">
                     <p>On Linux with NVIDIA GPUs, the Vulkan backend gives the best compute performance. On macOS, wgpu uses
                         Metal automatically — no additional setup needed.</p>
@@ -247,13 +247,13 @@
                 <p class="subtitle">From video to trained Gaussians in one call</p>
                 <h2>CLI</h2>
                 <pre><span class="highlight-cmt"># Basic run (CPU mode)</span>
-    gsplat --input my_scene.mp4 --output ./output
+    rgsplat --input my_scene.mp4 --output ./output
     
     <span class="highlight-cmt"># GPU mode, 2fps extraction, 30k iterations</span>
-    gsplat --input my_scene.mp4 --output ./output --gpu --fps 2 --iters 30000
+    rgsplat --input my_scene.mp4 --output ./output --gpu --fps 2 --iters 30000
     
     <span class="highlight-cmt"># Override training hyper-parameters</span>
-    gsplat --input scene.mp4 --output ./out \
+    rgsplat --input scene.mp4 --output ./out \
       --gpu \
       --lr-position 0.00016 \
       --densify-from 500 \
@@ -261,9 +261,9 @@
       --max-gaussians 2000000
     
     <span class="highlight-cmt"># View all flags</span>
-    gsplat --help</pre>
+    rgsplat --help</pre>
                 <h2>Rust API</h2>
-                <pre><span class="highlight-kw">use</span> gaussian_splat::pipeline::{Pipeline, PipelineConfig};
+                <pre><span class="highlight-kw">use</span> rgsplat::pipeline::{Pipeline, PipelineConfig};
     
     <span class="highlight-kw">#[tokio::main]</span>
     <span class="highlight-kw">async fn</span> <span class="highlight-ty">main</span>() -> anyhow::Result<()> {
@@ -1364,7 +1364,7 @@
                         </tr>
                         <tr>
                             <td><code>python</code></td>
-                            <td>PyO3 FFI module (<code>gaussian_splat.pyd</code> / <code>.so</code>)</td>
+                            <td>PyO3 FFI module (<code>rgsplat.pyd</code> / <code>.so</code>)</td>
                             <td>pyo3 0.20</td>
                         </tr>
                         <tr>
@@ -1485,9 +1485,9 @@
                 <h2>Build the wheel</h2>
                 <pre>pip install maturin
     maturin build --release --features python
-    pip install target/wheels/gaussian_splat-*.whl</pre>
+    pip install target/wheels/rgsplat-*.whl</pre>
                 <h2>Usage</h2>
-                <pre><span class="highlight-kw">import</span> gaussian_splat as gs
+                <pre><span class="highlight-kw">import</span> rgsplat as gs
     <span class="highlight-kw">import</span> asyncio
     
     <span class="highlight-kw">async def</span> main():
@@ -1542,13 +1542,13 @@
                 </div>
                 <h2>Speed up COLMAP</h2>
                 <pre><span class="highlight-cmt"># Restrict to sequential matching for large frame sets</span>
-    gsplat --input scene.mp4 --output out --colmap-matcher sequential
+    rgsplat --input scene.mp4 --output out --colmap-matcher sequential
     
     <span class="highlight-cmt"># Use GPU SIFT (3-5x faster than CPU SIFT)</span>
-    gsplat --input scene.mp4 --output out --gpu</pre>
+    rgsplat --input scene.mp4 --output out --gpu</pre>
                 <h2>Profile with Tokio Console</h2>
                 <pre>RUSTFLAGS="--cfg tokio_unstable" cargo build --release --features full
-    RUST_LOG=debug ./target/release/gsplat --input scene.mp4 --output out</pre>
+    RUST_LOG=debug ./target/release/rgsplat --input scene.mp4 --output out</pre>
                 <p>Install <code>tokio-console</code> to visualise async task execution and identify blocking tasks that
                     should be moved to <code>spawn_blocking</code>.</p>
                 <h2>Memory usage estimate</h2>

@@ -487,7 +487,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gaussian_splat_pipeline"
+name = "rgsplat"
 version = "0.1.0"
 dependencies = [
  "anyhow",

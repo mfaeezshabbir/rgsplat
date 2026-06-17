@@ -1,9 +1,9 @@
-//! `gsplat` — command-line driver for the Gaussian Splatting pipeline.
+//! `rgsplat` — command-line driver for the Gaussian Splatting pipeline.
 //!
 //! ```text
-//! gsplat --input scene.mp4 --output ./out            # CPU
-//! gsplat --input scene.mp4 --output ./out --gpu      # GPU (needs `--features gpu`)
-//! gsplat --input ./images  --output ./out --skip-extract  # pre-extracted frames
+//! rgsplat --input scene.mp4 --output ./out            # CPU
+//! rgsplat --input scene.mp4 --output ./out --gpu      # GPU (needs `--features gpu`)
+//! rgsplat --input ./images  --output ./out --skip-extract  # pre-extracted frames
 //! ```
 
 use std::path::PathBuf;
@@ -12,11 +12,11 @@ use anyhow::Result;
 use clap::Parser;
 use tracing_subscriber::{EnvFilter, fmt};
 
-use gaussian_splat_pipeline::pipeline::{Pipeline, PipelineConfig};
+use rgsplat::pipeline::{Pipeline, PipelineConfig};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "gsplat",
+    name = "rgsplat",
     version,
     about = "Train a 3D Gaussian Splatting model from a video or image set"
 )]

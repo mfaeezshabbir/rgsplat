@@ -4,8 +4,8 @@
 
 #![cfg(feature = "gpu")]
 
-use gaussian_splat_pipeline::gpu::GpuRenderer;
-use gaussian_splat_pipeline::math::{Camera, Gaussian3D, logit};
+use rgsplat::gpu::GpuRenderer;
+use rgsplat::math::{Camera, Gaussian3D, logit};
 
 fn cam(w: u32, h: u32) -> Camera {
     Camera {

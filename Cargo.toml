@@ -1,5 +1,5 @@
 [package]
-name = "gaussian_splat_pipeline"
+name = "rgsplat"
 version = "0.1.0"
 edition = "2024"
 description = "3D Gaussian Splatting for real-time radiance field rendering, in Rust"
@@ -7,12 +7,12 @@ license = "MIT"
 readme = "Readme.md"
 
 [lib]
-name = "gaussian_splat_pipeline"
+name = "rgsplat"
 # rlib for tests/bin, cdylib so maturin can build a Python extension module.
 crate-type = ["rlib", "cdylib"]
 
 [[bin]]
-name = "gsplat"
+name = "rgsplat"
 path = "src/main.rs"
 
 [dependencies]

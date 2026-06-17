@@ -2,10 +2,10 @@
 //! tiny scene so the photometric loss decreases. This exercises the full
 //! render → backward → Adam path the pipeline relies on.
 
-use gaussian_splat_pipeline::cpu::backward::{LossConfig, render_and_backward, render_color};
-use gaussian_splat_pipeline::io::TargetImage;
-use gaussian_splat_pipeline::math::{Camera, Gaussian3D, logit};
-use gaussian_splat_pipeline::pipeline::optimizer::{AdamState, TrainConfig, adam_step};
+use rgsplat::cpu::backward::{LossConfig, render_and_backward, render_color};
+use rgsplat::io::TargetImage;
+use rgsplat::math::{Camera, Gaussian3D, logit};
+use rgsplat::pipeline::optimizer::{AdamState, TrainConfig, adam_step};
 
 fn identity_camera(w: u32, h: u32) -> Camera {
     Camera {
