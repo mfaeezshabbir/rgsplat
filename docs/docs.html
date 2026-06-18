@@ -260,19 +260,64 @@ powershell -File scripts/install.ps1   <span class="highlight-cmt"># Windows</sp
                 <pre><span class="highlight-cmt"># Basic run (CPU mode)</span>
     rgsplat --input my_scene.mp4 --output ./output
     
-    <span class="highlight-cmt"># GPU mode, 2fps extraction, 30k iterations</span>
-    rgsplat --input my_scene.mp4 --output ./output --gpu --fps 2 --iters 30000
+    <span class="highlight-cmt"># GPU mode, 2fps extraction, 15k iterations</span>
+    rgsplat --input my_scene.mp4 --output ./output --gpu --fps 2 --iters 15000
     
-    <span class="highlight-cmt"># Override training hyper-parameters</span>
-    rgsplat --input scene.mp4 --output ./out \
-      --gpu \
-      --lr-position 0.00016 \
-      --densify-from 500 \
-      --densify-until 15000 \
-      --max-gaussians 2000000
+    <span class="highlight-cmt"># White background, checkpoint every 1k iters, skip SfM</span>
+    rgsplat --input ./frames --output ./out --bg 1,1,1 --save-interval 1000 --skip-sfm
     
     <span class="highlight-cmt"># View all flags</span>
     rgsplat --help</pre>
+                <h3>All CLI flags</h3>
+                <div class="table-wrap">
+                    <table>
+                        <tr>
+                            <th>Flag</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><code>-i, --input</code></td>
+                            <td><em>required</em></td>
+                            <td>Input video (<code>.mp4</code>) or directory of pre-extracted frames</td>
+                        </tr>
+                        <tr>
+                            <td><code>-o, --output</code></td>
+                            <td><em>required</em></td>
+                            <td>Output directory for frames, COLMAP workspace, checkpoints, and final PLY</td>
+                        </tr>
+                        <tr>
+                            <td><code>--gpu</code></td>
+                            <td><code>false</code></td>
+                            <td>Use GPU compute path (requires <code>--features gpu</code>)</td>
+                        </tr>
+                        <tr>
+                            <td><code>--fps</code></td>
+                            <td><code>2.0</code></td>
+                            <td>Frames per second to extract from video</td>
+                        </tr>
+                        <tr>
+                            <td><code>--iters</code></td>
+                            <td><code>30000</code></td>
+                            <td>Number of training iterations</td>
+                        </tr>
+                        <tr>
+                            <td><code>--save-interval</code></td>
+                            <td><code>5000</code></td>
+                            <td>Save a checkpoint PLY every N iterations</td>
+                        </tr>
+                        <tr>
+                            <td><code>--bg</code></td>
+                            <td><code>0,0,0</code></td>
+                            <td>Background color as <code>R,G,B</code> floats in [0,1] (e.g. <code>1,1,1</code> for white)</td>
+                        </tr>
+                        <tr>
+                            <td><code>--skip-sfm</code></td>
+                            <td><code>false</code></td>
+                            <td>Skip ffmpeg extraction and COLMAP; load existing workspace from <code>--output</code></td>
+                        </tr>
+                    </table>
+                </div>
                 <h2>Rust API</h2>
                 <pre><span class="highlight-kw">use</span> rgsplat::pipeline::{Pipeline, PipelineConfig};
     
