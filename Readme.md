@@ -33,9 +33,21 @@ For detailed documentation, including:
 
 Please see the [full documentation](./docs/docs.html) in the `docs/` directory.
 
-## Quick Install
+## Pre-built binaries
 
-One command to install everything (Rust, ffmpeg, COLMAP, and rgsplat):
+Download the latest binary for your platform from the [Releases page](https://github.com/mfaeezshabbir/rgsplat/releases) — no Rust toolchain needed.
+
+| Platform | Download |
+|----------|----------|
+| Linux (x86_64) | `rgsplat-x86_64-unknown-linux-gnu.tar.gz` |
+| macOS (x86_64) | `rgsplat-x86_64-apple-darwin.tar.gz` |
+| Windows (x86_64) | `rgsplat-x86_64-pc-windows-msvc.zip` |
+
+Unzip and run `./rgsplat` (or `rgsplat.exe` on Windows). You still need **ffmpeg** and **COLMAP** on `PATH` (see [Requirements](#requirements)).
+
+## Quick Install (from source)
+
+One command to install Rust, ffmpeg, COLMAP, and build rgsplat:
 
 **Linux / macOS**
 ```bash
@@ -47,12 +59,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/mfaeezshabbir/rgsplat/main/s
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-Or clone and run the scripts locally:
+Or clone and build manually:
 ```bash
 git clone https://github.com/mfaeezshabbir/rgsplat.git
 cd rgsplat
-bash scripts/install.sh          # Linux / macOS
-powershell -File scripts\install.ps1   # Windows
+cargo build --release
 ```
 
 ## Quick Start

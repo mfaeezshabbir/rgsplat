@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binary
+        shell: bash
+        run: |
+          BIN="target/${{ matrix.target }}/release/rgsplat${{ matrix.ext }}"
+          PKG="rgsplat-${{ matrix.target }}${{ matrix.ext }}"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a "${PKG}.zip" "$BIN"
+          else
+            tar czf "${PKG}.tar.gz" -C "$(dirname "$BIN")" "$(basename "$BIN")"
+          fi
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: rgsplat-${{ matrix.target }}*
+          generate_release_notes: true
