@@ -8,18 +8,7 @@ set -euo pipefail
 # Or:     bash scripts/install.sh
 # ─────────────────────────────────────────────────────────────
 
-REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-
 echo "=== rgsplat: installing system dependencies ==="
-
-# ── Rust ────────────────────────────────────────────────────
-if command -v rustc &>/dev/null; then
-    echo "  Rust OK ($(rustc --version))"
-else
-    echo "  Installing Rust via rustup..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    . "$HOME/.cargo/env"
-fi
 
 # ── System packages (ffmpeg + colmap) ────────────────────────
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -50,9 +39,39 @@ for cmd in ffmpeg colmap; do
     fi
 done
 
-# ── Build & install rgsplat ─────────────────────────────────
-echo "=== Building rgsplat (this takes a minute) ==="
-cargo install --path "$REPO_DIR" --locked
+# ── Platform detection ──────────────────────────────────────
+ARCH=""
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    ARCH="x86_64-unknown-linux-gnu"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    if [[ "$(uname -m)" == "arm64" ]]; then
+        ARCH="aarch64-apple-darwin"
+    else
+        ARCH="x86_64-apple-darwin"
+    fi
+else
+    echo "Unsupported OS: $OSTYPE"
+    exit 1
+fi
+
+# ── Download rgsplat binary ──────────────────────────────────
+echo "=== Downloading rgsplat (${ARCH}) ==="
+URL="https://github.com/mfaeezshabbir/rgsplat/releases/latest/download/rgsplat-${ARCH}.tar.gz"
+TMP_DIR=$(mktemp -d)
+curl -fsSL "$URL" -o "$TMP_DIR/rgsplat.tar.gz"
+tar xzf "$TMP_DIR/rgsplat.tar.gz" -C "$TMP_DIR"
+
+# Install to ~/.cargo/bin (or /usr/local/bin if we have sudo)
+INSTALL_DIR="${HOME}/.cargo/bin"
+mkdir -p "$INSTALL_DIR"
+cp "$TMP_DIR/rgsplat" "$INSTALL_DIR/rgsplat"
+chmod +x "$INSTALL_DIR/rgsplat"
+rm -rf "$TMP_DIR"
+
+# Ensure on PATH
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    echo "  Add to your shell profile: export PATH=\"\$PATH:$INSTALL_DIR\""
+fi
 
 echo ""
 echo "=== Done! Run: rgsplat --help ==="

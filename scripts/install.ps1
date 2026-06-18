@@ -5,22 +5,8 @@
 # ─────────────────────────────────────────────────────────────
 
 $ErrorActionPreference = "Stop"
-$RepoDir = Split-Path -Parent $PSScriptRoot
 
 Write-Host "=== rgsplat: installing dependencies ===" -ForegroundColor Cyan
-
-# ── Rust via rustup ─────────────────────────────────────────
-if (Get-Command rustc -ErrorAction SilentlyContinue) {
-    Write-Host "  Rust OK ($(rustc --version))" -ForegroundColor Green
-} else {
-    Write-Host "  Installing Rust via rustup..." -ForegroundColor Yellow
-    $url = "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe"
-    $tmp = "$env:TEMP\rustup-init.exe"
-    Invoke-WebRequest -Uri $url -OutFile $tmp
-    & $tmp -y
-    # Update PATH for this session
-    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-}
 
 # ── ffmpeg (winget) ──────────────────────────────────────────
 if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
@@ -28,7 +14,6 @@ if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
 } else {
     Write-Host "  Installing ffmpeg via winget..." -ForegroundColor Yellow
     winget install --silent --accept-package-agreements FFmpeg
-    # Refresh PATH
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";$env:Path"
 }
 
@@ -43,15 +28,36 @@ if (Get-Command colmap -ErrorAction SilentlyContinue) {
     Write-Host "    Downloading COLMAP 3.9.1..." -ForegroundColor Gray
     Invoke-WebRequest -Uri $url -OutFile $zip
     Expand-Archive -Path $zip -DestinationPath $dest -Force
-    # Add to PATH
     $colmapBin = "$dest\colmap-3.9.1-windows-cuda"
     [Environment]::SetEnvironmentVariable("Path", "$colmapBin;$env:Path", "User")
     $env:Path = "$colmapBin;$env:Path"
 }
 
-# ── Build & install rgsplat ─────────────────────────────────
-Write-Host "=== Building rgsplat (this takes a minute) ===" -ForegroundColor Cyan
-cargo install --path "$RepoDir" --locked
+# ── Download rgsplat binary ──────────────────────────────────
+$target = "x86_64-pc-windows-msvc"
+$url = "https://github.com/mfaeezshabbir/rgsplat/releases/latest/download/rgsplat-${target}.zip"
+$zip = "$env:TEMP\rgsplat.zip"
+$extractDir = "$env:TEMP\rgsplat"
+
+Write-Host "=== Downloading rgsplat ===" -ForegroundColor Cyan
+Invoke-WebRequest -Uri $url -OutFile $zip
+
+Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+Expand-Archive -Path $zip -DestinationPath $extractDir -Force
+
+# Install to ~\.cargo\bin
+$installDir = "$env:USERPROFILE\.cargo\bin"
+if (-not (Test-Path $installDir)) { New-Item -ItemType Directory -Path $installDir -Force | Out-Null }
+Copy-Item "$extractDir\rgsplat.exe" "$installDir\rgsplat.exe" -Force
+Remove-Item -Path $zip -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+
+# Add to PATH if not already
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($userPath -notlike "*$installDir*") {
+    [Environment]::SetEnvironmentVariable("Path", "$installDir;$userPath", "User")
+    $env:Path = "$installDir;$env:Path"
+}
 
 Write-Host ""
 Write-Host "=== Done! Run: rgsplat --help ===" -ForegroundColor Green
