@@ -4,6 +4,9 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: ${{ matrix.os }}
@@ -51,4 +54,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: rgsplat-${{ matrix.target }}*
-          generate_release_notes: true
+          generate_release_notes: false
