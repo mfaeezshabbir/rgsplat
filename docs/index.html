@@ -177,6 +177,17 @@
             <div class="page" id="page-install">
                 <h1>Installation</h1>
                 <p class="subtitle">Prerequisites and build configurations</p>
+                <h2>Quick install (one command)</h2>
+                <p>Installs Rust, ffmpeg, COLMAP, and builds rgsplat:</p>
+                <p><strong>Linux / macOS</strong></p>
+                <pre>bash &lt;(curl -fsSL https://raw.githubusercontent.com/mfaeezshabbir/rgsplat/main/scripts/install.sh)</pre>
+                <p><strong>Windows (PowerShell as Admin)</strong></p>
+                <pre>powershell -ExecutionPolicy Bypass -File https://raw.githubusercontent.com/mfaeezshabbir/rgsplat/main/scripts/install.ps1</pre>
+                <p>Or clone and run locally:</p>
+                <pre>git clone https://github.com/mfaeezshabbir/rgsplat.git
+cd rgsplat
+bash scripts/install.sh          <span class="highlight-cmt"># Linux / macOS</span>
+powershell -File scripts/install.ps1   <span class="highlight-cmt"># Windows</span></pre>
                 <h2>System requirements</h2>
                 <div class="table-wrap">
                     <table>
