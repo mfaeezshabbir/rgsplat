@@ -166,5 +166,25 @@ powershell -ExecutionPolicy Bypass -File https://raw.githubusercontent.com/mfaee
         </div>
     </footer>
 
+<script>
+function addCopyButtons() {
+  document.querySelectorAll('pre').forEach(function(pre) {
+    var btn = document.createElement('button');
+    btn.textContent = 'Copy';
+    btn.className = 'copy-btn';
+    btn.onclick = function() {
+      var code = pre.querySelector('code');
+      var text = code ? code.textContent : pre.textContent;
+      navigator.clipboard.writeText(text.trim()).then(function() {
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+      });
+    };
+    pre.style.position = 'relative';
+    pre.appendChild(btn);
+  });
+}
+document.addEventListener('DOMContentLoaded', addCopyButtons);
+</script>
 </body>
 </html>

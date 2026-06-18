@@ -882,6 +882,34 @@ img {
   margin: 0;
 }
 
+/* ── Copy Button ── */
+
+.copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: #334155;
+  color: #cbd5e1;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+pre:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: #475569;
+  color: #f1f5f9;
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 900px) {
